@@ -35,6 +35,8 @@ pub enum DbError {
     DbNotOpenError,
 }
 
+type StampResult<'a> = std::result::Result<&'a Stamp, DbError>;
+
 static conn: Mutex<Option<sqlite::Connection>> = Mutex::new(None);
 
 pub fn init(db_path: &Path) -> Result<(), DbError> {
@@ -69,16 +71,25 @@ impl Stamp {
         }
     }
 
-    pub fn insert(self: &Stamp) {
+    pub fn insert(self: &Stamp)-> StampResult {
         let query = format!(
             "INSERT INTO Stamp ( datetime, in_out) VALUES( {}, {}",
             self.date.to_rfc3339(),
             self.in_out.to_string()
         );
-        do_simple_query(query)
+        do_simple_query(query)?;
+        Ok(self)
     }
 
-    pub fn update(self: &Stamp) {}
+    pub fn update(self: &Stamp) -> StampResult {
+        let query = format!(
+            "INSERT INTO Stamp ( datetime, in_out) VALUES( {}, {}",
+            self.date.to_rfc3339(),
+            self.in_out.to_string()
+        );
+        do_simple_query(query)?;
+        Ok(self)
+    }
 
     pub fn get(_id: u64) -> Stamp {
         Stamp::new(0, Utc::now(), InOut::In)
