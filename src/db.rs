@@ -37,13 +37,13 @@ pub enum DbError {
 
 type StampResult<'a> = std::result::Result<&'a Stamp, DbError>;
 
-static conn: Mutex<Option<sqlite::Connection>> = Mutex::new(None);
+static CONN: Mutex<Option<sqlite::Connection>> = Mutex::new(None);
 
 pub fn init(db_path: &Path) -> Result<(), DbError> {
     let c = sqlite::open(db_path)?;
     // It's okay to unwrap, because lock() can only fail if another thread panicked,
     // so we are domed anyway.
-    let mut inner = conn.lock().unwrap();
+    let mut inner = CONN.lock().unwrap();
 
     *inner = Some(c);
 
@@ -51,7 +51,7 @@ pub fn init(db_path: &Path) -> Result<(), DbError> {
 }
 
 fn do_simple_query(query: String) -> Result<(), DbError> {
-    let local_conn = conn.lock().unwrap();
+    let local_conn = CONN.lock().unwrap();
 
     if let Some(c) = local_conn.as_ref() {
         c.execute(query)?;
@@ -71,7 +71,7 @@ impl Stamp {
         }
     }
 
-    pub fn insert(self: &Stamp)-> StampResult {
+    pub fn insert(self: &Stamp) -> StampResult {
         let query = format!(
             "INSERT INTO Stamp ( datetime, in_out) VALUES( {}, {}",
             self.date.to_rfc3339(),
