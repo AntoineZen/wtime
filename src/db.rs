@@ -18,9 +18,9 @@ impl InOut {
 }
 
 pub struct Stamp {
-    id: u64,
-    date: DateTime<Utc>,
-    in_out: InOut,
+    pub id: i64,
+    pub date: DateTime<Utc>,
+    pub in_out: InOut,
 }
 
 #[derive(Error, Debug)]
@@ -63,29 +63,60 @@ fn do_simple_query(query: String) -> Result<(), DbError> {
 }
 
 impl Stamp {
-    pub fn new(id: u64, date: DateTime<Utc>, in_out: InOut) -> Stamp {
+    pub fn new(id: i64, date: DateTime<Utc>, in_out: InOut) -> Stamp {
+        Stamp { id, date, in_out }
+    }
+
+    pub fn check_in() -> Stamp {
         Stamp {
-            id: id,
-            date: date,
-            in_out: in_out,
+            id: 0,
+            date: Utc::now(),
+            in_out: InOut::In,
         }
     }
 
-    pub fn insert(self: &Stamp) -> StampResult {
-        let query = format!(
-            "INSERT INTO Stamp ( datetime, in_out) VALUES( {}, {}",
+    pub fn check_out() -> Stamp {
+        Stamp {
+            id: 0,
+            date: Utc::now(),
+            in_out: InOut::Out,
+        }
+    }
+
+    pub fn insert(self: &mut Stamp) -> StampResult {
+        let local_conn = CONN.lock().unwrap();
+        let insert_query = format!(
+            "INSERT INTO Stamp ( datetime, in_out) VALUES( \"{}\", \"{}\") ",
             self.date.to_rfc3339(),
-            self.in_out.to_string()
+            self.in_out
         );
-        do_simple_query(query)?;
+
+        if let Some(c) = local_conn.as_ref() {
+            c.execute(insert_query)?;
+
+            let mut statement = c.prepare("SELECT last_insert_rowid()")?;
+
+            match statement.next()? {
+                sqlite::State::Row => {
+                    self.id = statement.read::<i64, _>(0)?;
+                }
+                sqlite::State::Done => {
+                    unreachable!("SELECT last_insert_rowid() should not fail");
+                }
+            }
+        } else {
+            return Err(DbError::DbNotOpenError);
+        }
+
         Ok(self)
     }
 
     pub fn update(self: &Stamp) -> StampResult {
         let query = format!(
-            "INSERT INTO Stamp ( datetime, in_out) VALUES( {}, {}",
+            "UPDATE Stamp SET datetime, in_out VALUES ( \"{}\", \"{}\") WHERE id = {}",
             self.date.to_rfc3339(),
-            self.in_out.to_string()
+            self.in_out,
+            self.id
         );
         do_simple_query(query)?;
         Ok(self)
