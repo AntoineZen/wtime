@@ -1,6 +1,6 @@
 use chrono::prelude::*;
 use sqlite;
-use std::{path::Path, sync::Mutex};
+use std::{fmt::Display, fmt::Formatter, path::Path, sync::Mutex};
 use thiserror::Error;
 
 pub enum InOut {
@@ -8,11 +8,11 @@ pub enum InOut {
     Out,
 }
 
-impl InOut {
-    pub fn to_string(&self) -> String {
+impl Display for InOut {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
         match self {
-            InOut::In => "In".into(),
-            InOut::Out => "Out".into(),
+            InOut::In => write!(f, "In"),
+            InOut::Out => write!(f, "Out"),
         }
     }
 }
