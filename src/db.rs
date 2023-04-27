@@ -1,6 +1,6 @@
 use chrono::prelude::*;
 use sqlite;
-use std::{fmt::Display, fmt::Formatter, path::Path, sync::Mutex};
+use std::{str::FromStr, fmt::Formatter, path::Path, sync::Mutex};
 use thiserror::Error;
 
 pub enum InOut {
@@ -8,11 +8,27 @@ pub enum InOut {
     Out,
 }
 
-impl Display for InOut {
+impl std::fmt::Display for InOut {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
         match self {
             InOut::In => write!(f, "In"),
             InOut::Out => write!(f, "Out"),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct ParseInOutError;
+
+impl std::str::FromStr for InOut {
+
+    type Err = ParseInOutError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim().to_lowercase().as_str() {
+            "in" => Ok(Self::In),
+            "out" => Ok(Self::Out),
+            _ => Err(ParseInOutError)
         }
     }
 }
@@ -33,6 +49,13 @@ pub enum DbError {
 
     #[error("Database not opened!")]
     DbNotOpenError,
+    #[error("No such entry")]
+    NoSuchEntry,
+
+    #[error(transparent)]
+    PraseError {
+        #[from] source: chrono::format::ParseError,
+    },
 }
 
 type StampResult<'a> = std::result::Result<&'a Stamp, DbError>;
@@ -122,8 +145,29 @@ impl Stamp {
         Ok(self)
     }
 
-    pub fn get(_id: u64) -> Stamp {
-        Stamp::new(0, Utc::now(), InOut::In)
+    pub fn get(id: i64) -> Result<Stamp,DbError>  {
+        let local_conn = CONN.lock().unwrap();
+        if let Some(c) = local_conn.as_ref() {
+
+            let mut statement = c.prepare(
+                format!("SELECT datetime, in_out FROM Stamp WHERE id = {};", id)
+            )?;
+
+            match statement.next()? {
+                sqlite::State::Row => {
+                    Ok(Self {
+                        id: id,
+                        date: DateTime::parse_from_rfc3339(&statement.read::<String, _>("datetime")?)?.into(),
+                        in_out: InOut::from_str(&statement.read::<String, _>("in_out")?).unwrap()
+                    })
+                }
+                sqlite::State::Done => {
+                    Err(DbError::NoSuchEntry)
+                }
+            }
+        } else {
+            Err(DbError::DbNotOpenError)
+        }
     }
 
     pub fn delete(self: &Stamp) -> Result<(), DbError> {
