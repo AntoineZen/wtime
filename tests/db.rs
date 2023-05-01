@@ -17,9 +17,12 @@ fn test_insert() {
     s_in.insert().unwrap();
 
     assert!(s_in.id != 0);
+    assert!(matches!(s_in.in_out, InOut::In));
 
     let mut s_out = Stamp::check_out();
     s_out.insert().unwrap();
 
     assert!(s_out.id == s_in.id + 1);
+    assert!(matches!(s_out.in_out, InOut::Out));
+
 }
