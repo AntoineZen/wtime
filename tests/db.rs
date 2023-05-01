@@ -1,16 +1,18 @@
 use std::path::Path;
-use wtime::db::init;
-use wtime::db::Stamp;
+use wtime::db::{InOut, init, Stamp, DbError};
 
 #[test]
 fn test_create() {
     init(Path::new("test_database.sqlite")).unwrap();
     Stamp::create().unwrap();
+
+    Stamp::drop().unwrap();
 }
 
 #[test]
 fn test_insert() {
     init(Path::new("test_database.sqlite")).unwrap();
+    Stamp::create().unwrap();
 
     let mut s_in = Stamp::check_in();
 
@@ -25,4 +27,24 @@ fn test_insert() {
     assert!(s_out.id == s_in.id + 1);
     assert!(matches!(s_out.in_out, InOut::Out));
 
+    Stamp::drop().unwrap();
+}
+
+#[test]
+fn test_get() {
+    init(Path::new("test_database.sqlite")).unwrap();
+    Stamp::create().unwrap();
+
+    // Get a non-existent stamp
+    let res = Stamp::get(1);
+    assert!(matches!(res, Err(DbError::NoSuchEntry)));
+
+    // Create a stamp
+    Stamp::check_in().insert().unwrap();
+
+    // Check we can get it now
+    let s = Stamp::get(1).unwrap();
+    assert!(s.id == 1);
+    
+    Stamp::drop().unwrap();
 }
