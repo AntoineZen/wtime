@@ -183,4 +183,11 @@ impl Stamp {
 
         do_simple_query(query.into())
     }
+
+    pub fn drop() -> Result<(), DbError> {
+        let query = "DROP TABLE Stamp";
+
+        do_simple_query(query.into())
+    }
+
 }
