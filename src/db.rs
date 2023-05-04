@@ -145,6 +145,14 @@ impl Stamp {
         Ok(self)
     }
 
+    pub fn first() -> Option<Stamp> {
+        if let Ok(s) = Stamp::get(1){
+            Some(s)
+        }
+        else {
+            None
+        }
+    }
     pub fn get(id: i64) -> Result<Stamp,DbError>  {
         let local_conn = CONN.lock().unwrap();
         if let Some(c) = local_conn.as_ref() {

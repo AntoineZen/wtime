@@ -47,4 +47,26 @@ fn test_get() {
     assert!(s.id == 1);
     
     Stamp::drop().unwrap();
+#[test]
+fn test_first() {
+    init(Path::new("test_database.sqlite")).unwrap();
+    Stamp::create().unwrap();
+
+    // Get a non-existent stamp
+    let res = Stamp::first();
+    assert!(matches!(res, None));
+
+    // Create a stamp
+    let mut s = Stamp::check_in();
+    s.insert().unwrap();
+
+    let res = Stamp::first();
+    assert!(matches!(&res, Some(ref s)));
+    let fisrt_s = res.unwrap();
+
+    assert!(s.id == fisrt_s.id);
+
+    
+    Stamp::drop().unwrap();
+}
 }
