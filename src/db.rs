@@ -3,6 +3,7 @@ use sqlite;
 use std::{str::FromStr, fmt::Formatter, path::Path, sync::Mutex};
 use thiserror::Error;
 
+#[derive(Debug)]
 pub enum InOut {
     In,
     Out,
@@ -33,6 +34,7 @@ impl std::str::FromStr for InOut {
     }
 }
 
+#[derive(Debug)]
 pub struct Stamp {
     pub id: i64,
     pub date: DateTime<Utc>,
@@ -192,10 +194,43 @@ impl Stamp {
         do_simple_query(query.into())
     }
 
+    pub fn iter(self: &Stamp) -> StampIterator {
+        StampIterator::new(self.id)
+
+    }
+
     pub fn drop() -> Result<(), DbError> {
         let query = "DROP TABLE Stamp";
 
         do_simple_query(query.into())
     }
 
+}
+
+
+pub struct StampIterator {
+    current_index: i64,
+}
+
+impl StampIterator{
+
+    fn new(start_index: i64) -> Self {
+        Self { current_index: start_index }
+    }
+}
+
+impl Iterator for StampIterator {
+
+    type Item = Stamp;
+
+    fn next(&mut self) -> Option<Stamp> {
+        if let Ok(s) = Stamp::get(self.current_index)
+        {
+            self.current_index += 1;
+            Some(s)
+        }
+        else {
+            None
+        }
+    }
 }
