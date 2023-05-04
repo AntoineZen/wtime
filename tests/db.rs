@@ -1,5 +1,5 @@
 use std::path::Path;
-use wtime::db::{InOut, init, Stamp, DbError};
+use wtime::db::{init, DbError, InOut, Stamp};
 
 #[test]
 fn test_create() {
@@ -45,7 +45,7 @@ fn test_get() {
     // Check we can get it now
     let s = Stamp::get(1).unwrap();
     assert!(s.id == 1);
-    
+
     Stamp::drop().unwrap();
 }
 
@@ -68,20 +68,17 @@ fn test_first() {
 
     assert!(s.id == fisrt_s.id);
 
-    
     Stamp::drop().unwrap();
 }
-
 
 #[test]
 fn test_next() {
     init(Path::new("test_database.sqlite")).unwrap();
     Stamp::create().unwrap();
 
-
     // Create a stamp
     let mut last_inserted = None;
-    for _ in 0..10{
+    for _ in 0..10 {
         Stamp::check_in().insert().unwrap();
         let mut s = Stamp::check_out();
         s.insert().unwrap();
@@ -91,7 +88,6 @@ fn test_next() {
 
     let mut first_stamp = Stamp::first().unwrap();
 
-
     let mut last_iterated: Option<Stamp> = None;
     for s in first_stamp.iter() {
         last_iterated = Some(s);
@@ -100,6 +96,5 @@ fn test_next() {
     let last_iterated = last_iterated.unwrap();
     assert!(last_iterated.id == last_inserted.id);
 
-    
     Stamp::drop().unwrap();
 }

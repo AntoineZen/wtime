@@ -1,6 +1,6 @@
 use chrono::prelude::*;
 use sqlite;
-use std::{str::FromStr, fmt::Formatter, path::Path, sync::Mutex};
+use std::{fmt::Formatter, path::Path, str::FromStr, sync::Mutex};
 use thiserror::Error;
 
 #[derive(Debug)]
@@ -22,14 +22,13 @@ impl std::fmt::Display for InOut {
 pub struct ParseInOutError;
 
 impl std::str::FromStr for InOut {
-
     type Err = ParseInOutError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.trim().to_lowercase().as_str() {
             "in" => Ok(Self::In),
             "out" => Ok(Self::Out),
-            _ => Err(ParseInOutError)
+            _ => Err(ParseInOutError),
         }
     }
 }
@@ -56,7 +55,8 @@ pub enum DbError {
 
     #[error(transparent)]
     PraseError {
-        #[from] source: chrono::format::ParseError,
+        #[from]
+        source: chrono::format::ParseError,
     },
 }
 
@@ -147,33 +147,61 @@ impl Stamp {
         Ok(self)
     }
 
-    pub fn first() -> Option<Stamp> {
-        if let Ok(s) = Stamp::get(1){
+    pub fn previous(self: &Stamp) -> Option<Stamp> {
+        if let Ok(s) = Stamp::get(self.id - 1) {
             Some(s)
-        }
-        else {
+        } else {
             None
         }
     }
-    pub fn get(id: i64) -> Result<Stamp,DbError>  {
+
+    pub fn first() -> Option<Stamp> {
+        if let Ok(s) = Stamp::get(1) {
+            Some(s)
+        } else {
+            None
+        }
+    }
+
+    pub fn last() -> Option<Stamp> {
         let local_conn = CONN.lock().unwrap();
         if let Some(c) = local_conn.as_ref() {
+            // Find the last id from the table
+            let mut statement = c.prepare("SELECT max(id) FROM Stamp;").ok()?;
+            match statement.next().ok()? {
+                sqlite::State::Row => {
+                    // Once we have it, get the Stamp entry
+                    let last_id = statement.read::<i64, _>(0).ok()?;
 
-            let mut statement = c.prepare(
-                format!("SELECT datetime, in_out FROM Stamp WHERE id = {};", id)
-            )?;
+                    if let Ok(s) = Self::get(last_id) {
+                        Some(s)
+                    } else {
+                        None
+                    }
+                }
+                sqlite::State::Done => None,
+            }
+        } else {
+            None
+        }
+    }
+
+    pub fn get(id: i64) -> Result<Stamp, DbError> {
+        let local_conn = CONN.lock().unwrap();
+        if let Some(c) = local_conn.as_ref() {
+            let mut statement = c.prepare(format!(
+                "SELECT datetime, in_out FROM Stamp WHERE id = {};",
+                id
+            ))?;
 
             match statement.next()? {
-                sqlite::State::Row => {
-                    Ok(Self {
-                        id: id,
-                        date: DateTime::parse_from_rfc3339(&statement.read::<String, _>("datetime")?)?.into(),
-                        in_out: InOut::from_str(&statement.read::<String, _>("in_out")?).unwrap()
-                    })
-                }
-                sqlite::State::Done => {
-                    Err(DbError::NoSuchEntry)
-                }
+                sqlite::State::Row => Ok(Self {
+                    id: id,
+                    date: DateTime::parse_from_rfc3339(&statement.read::<String, _>("datetime")?)?
+                        .into(),
+                    in_out: InOut::from_str(&statement.read::<String, _>("in_out")?).unwrap(),
+                }),
+                sqlite::State::Done => Err(DbError::NoSuchEntry),
             }
         } else {
             Err(DbError::DbNotOpenError)
@@ -196,7 +224,6 @@ impl Stamp {
 
     pub fn iter(self: &Stamp) -> StampIterator {
         StampIterator::new(self.id)
-
     }
 
     pub fn drop() -> Result<(), DbError> {
@@ -204,32 +231,28 @@ impl Stamp {
 
         do_simple_query(query.into())
     }
-
 }
-
 
 pub struct StampIterator {
     current_index: i64,
 }
 
-impl StampIterator{
-
+impl StampIterator {
     fn new(start_index: i64) -> Self {
-        Self { current_index: start_index }
+        Self {
+            current_index: start_index,
+        }
     }
 }
 
 impl Iterator for StampIterator {
-
     type Item = Stamp;
 
     fn next(&mut self) -> Option<Stamp> {
-        if let Ok(s) = Stamp::get(self.current_index)
-        {
+        if let Ok(s) = Stamp::get(self.current_index) {
             self.current_index += 1;
             Some(s)
-        }
-        else {
+        } else {
             None
         }
     }
