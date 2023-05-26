@@ -72,7 +72,7 @@ fn test_first() {
 }
 
 #[test]
-fn test_next() {
+fn test_iter() {
     init(Path::new("test_database.sqlite")).unwrap();
     Stamp::create().unwrap();
 
@@ -98,3 +98,31 @@ fn test_next() {
 
     Stamp::drop().unwrap();
 }
+
+#[test]
+fn test_last() {
+    init(Path::new("test_database.sqlite")).unwrap();
+    Stamp::create().unwrap();
+
+    let res = Stamp::last();
+    assert!(matches!(res, None));
+
+    // Create some stamp
+    let mut last_inserted = None;
+    for _ in 0..10 {
+        Stamp::check_in().insert().unwrap();
+        let mut s = Stamp::check_out();
+        s.insert().unwrap();
+        last_inserted = Some(s);
+    }
+    //let last_inserted = last_inserted.unwrap();
+
+
+
+    let last_direct = Stamp::last();
+    assert!(matches!(&last_direct, last_inserted));
+    assert!(last_direct.unwrap().id == last_inserted.unwrap().id);
+
+    Stamp::drop().unwrap();
+}
+
