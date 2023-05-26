@@ -7,6 +7,5 @@ edition = "2021"
 
 [dependencies]
 chrono = "0.4.24"
-egui = "0.21.0"
 sqlite = "0.30.4"
 thiserror = "1.0.40"
