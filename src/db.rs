@@ -33,7 +33,6 @@ impl std::str::FromStr for InOut {
     }
 }
 
-#[derive(Debug)]
 pub struct Stamp {
     pub id: i64,
     pub date: DateTime<Utc>,
@@ -88,20 +87,20 @@ fn do_simple_query(query: String) -> Result<(), DbError> {
 }
 
 impl Stamp {
-    pub fn new(id: i64, date: DateTime<Utc>, in_out: InOut) -> Stamp {
-        Stamp { id, date, in_out }
+    pub fn new(id: i64, date: DateTime<Utc>, in_out: InOut) -> Self {
+        Self { id, date, in_out}
     }
 
-    pub fn check_in() -> Stamp {
-        Stamp {
+    pub fn check_in() -> Self {
+        Self {
             id: 0,
             date: Utc::now(),
             in_out: InOut::In,
         }
     }
 
-    pub fn check_out() -> Stamp {
-        Stamp {
+    pub fn check_out() -> Self {
+        Self {
             id: 0,
             date: Utc::now(),
             in_out: InOut::Out,
@@ -173,6 +172,8 @@ impl Stamp {
                     // Once we have it, get the Stamp entry
                     let last_id = statement.read::<i64, _>(0).ok()?;
 
+                    // TODO: this get cause a dead-lock! by calling
+                    // twice CONN.lock()
                     if let Ok(s) = Self::get(last_id) {
                         Some(s)
                     } else {
