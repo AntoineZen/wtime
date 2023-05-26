@@ -1,2 +1,8 @@
+# Compliation atefacts
 /target
+
+# Execution / test artefacts
 *.sqlite
+
+# Project files
+.vscode
