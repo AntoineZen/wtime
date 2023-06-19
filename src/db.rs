@@ -1,6 +1,6 @@
 use chrono::prelude::*;
-use sqlite;
-use std::{fmt::Formatter, path::Path, str::FromStr, sync::Mutex};
+use sqlite::{self};
+use std::{fmt::Formatter, str::FromStr};
 use thiserror::Error;
 
 #[derive(Debug)]
@@ -61,28 +61,10 @@ pub enum DbError {
 
 type StampResult<'a> = std::result::Result<&'a Stamp, DbError>;
 
-static CONN: Mutex<Option<sqlite::Connection>> = Mutex::new(None);
 
-pub fn init(db_path: &Path) -> Result<(), DbError> {
-    let c = sqlite::open(db_path)?;
-    // It's okay to unwrap, because lock() can only fail if another thread panicked,
-    // so we are domed anyway.
-    let mut inner = CONN.lock().unwrap();
 
-    *inner = Some(c);
-
-    Ok(())
-}
-
-fn do_simple_query(query: String) -> Result<(), DbError> {
-    let local_conn = CONN.lock().unwrap();
-
-    if let Some(c) = local_conn.as_ref() {
-        c.execute(query)?;
-    } else {
-        return Err(DbError::DbNotOpenError);
-    }
-
+fn do_simple_query(conn: & sqlite::Connection, query: String) -> Result<(), DbError> {
+    conn.execute(query)?;
     Ok(())
 }
 
@@ -107,18 +89,16 @@ impl Stamp {
         }
     }
 
-    pub fn insert(self: &mut Stamp) -> StampResult {
-        let local_conn = CONN.lock().unwrap();
+    pub fn insert(self: &mut Stamp, conn: &sqlite::Connection) -> StampResult {
         let insert_query = format!(
             "INSERT INTO Stamp ( datetime, in_out) VALUES( \"{}\", \"{}\") ",
             self.date.to_rfc3339(),
             self.in_out
         );
 
-        if let Some(c) = local_conn.as_ref() {
-            c.execute(insert_query)?;
+            conn.execute(insert_query)?;
 
-            let mut statement = c.prepare("SELECT last_insert_rowid()")?;
+            let mut statement = conn.prepare("SELECT last_insert_rowid()")?;
 
             match statement.next()? {
                 sqlite::State::Row => {
@@ -128,45 +108,41 @@ impl Stamp {
                     unreachable!("SELECT last_insert_rowid() should not fail");
                 }
             }
-        } else {
-            return Err(DbError::DbNotOpenError);
-        }
+
 
         Ok(self)
     }
 
-    pub fn update(self: &Stamp) -> StampResult {
+    pub fn update(self: &Stamp, conn: &sqlite::Connection) -> StampResult {
         let query = format!(
             "UPDATE Stamp SET datetime, in_out VALUES ( \"{}\", \"{}\") WHERE id = {}",
             self.date.to_rfc3339(),
             self.in_out,
             self.id
         );
-        do_simple_query(query)?;
+        do_simple_query(conn, query)?;
         Ok(self)
     }
 
-    pub fn previous(self: &Stamp) -> Option<Stamp> {
-        if let Ok(s) = Stamp::get(self.id - 1) {
+    pub fn previous(self: &Stamp, conn: &sqlite::Connection) -> Option<Stamp> {
+        if let Ok(s) = Stamp::get(conn, self.id - 1) {
             Some(s)
         } else {
             None
         }
     }
 
-    pub fn first() -> Option<Stamp> {
-        if let Ok(s) = Stamp::get(1) {
+    pub fn first(conn: &sqlite::Connection) -> Option<Stamp> {
+        if let Ok(s) = Stamp::get(conn, 1) {
             Some(s)
         } else {
             None
         }
     }
 
-    pub fn last() -> Option<Stamp> {
-        let local_conn = CONN.lock().unwrap();
-        if let Some(c) = local_conn.as_ref() {
+    pub fn last(conn: &sqlite::Connection) -> Option<Stamp> {
             // Find the last id from the table
-            let mut statement = c.prepare("SELECT max(id) FROM Stamp;").ok()?;
+            let mut statement = conn.prepare("SELECT max(id) FROM Stamp;").ok()?;
             match statement.next().ok()? {
                 sqlite::State::Row => {
                     // Once we have it, get the Stamp entry
@@ -174,7 +150,7 @@ impl Stamp {
 
                     // TODO: this get cause a dead-lock! by calling
                     // twice CONN.lock()
-                    if let Ok(s) = Self::get(last_id) {
+                    if let Ok(s) = Self::get(conn, last_id) {
                         Some(s)
                     } else {
                         None
@@ -182,15 +158,10 @@ impl Stamp {
                 }
                 sqlite::State::Done => None,
             }
-        } else {
-            None
-        }
     }
 
-    pub fn get(id: i64) -> Result<Stamp, DbError> {
-        let local_conn = CONN.lock().unwrap();
-        if let Some(c) = local_conn.as_ref() {
-            let mut statement = c.prepare(format!(
+    pub fn get(conn: &sqlite::Connection, id: i64) -> Result<Stamp, DbError> {
+            let mut statement = conn.prepare(format!(
                 "SELECT datetime, in_out FROM Stamp WHERE id = {};",
                 id
             ))?;
@@ -204,53 +175,52 @@ impl Stamp {
                 }),
                 sqlite::State::Done => Err(DbError::NoSuchEntry),
             }
-        } else {
-            Err(DbError::DbNotOpenError)
-        }
     }
 
-    pub fn delete(self: &Stamp) -> Result<(), DbError> {
-        do_simple_query(format!("DELETE FROM Stamp WHERE ID = {};", self.id))
+    pub fn delete(self: &Stamp, conn: &sqlite::Connection) -> Result<(), DbError> {
+        do_simple_query(conn, format!("DELETE FROM Stamp WHERE ID = {};", self.id))
     }
 
-    pub fn create() -> Result<(), DbError> {
+    pub fn create(conn: &sqlite::Connection) -> Result<(), DbError> {
         let query = "CREATE TABLE IF NOT EXISTS Stamp (
                 id INTEGER NOT NULL PRIMARY KEY ASC,
                 datetime TEXT,
                 in_out TEXT
             );";
 
-        do_simple_query(query.into())
+        do_simple_query(conn, query.into())
     }
 
-    pub fn iter(self: &Stamp) -> StampIterator {
-        StampIterator::new(self.id)
+    pub fn iter<'a>(self: &Stamp, conn: &'a sqlite::Connection) -> StampIterator<'a> {
+        StampIterator::new(conn, self.id)
     }
 
-    pub fn drop() -> Result<(), DbError> {
+    pub fn drop(conn: &sqlite::Connection) -> Result<(), DbError> {
         let query = "DROP TABLE Stamp";
 
-        do_simple_query(query.into())
+        do_simple_query(conn, query.into())
     }
 }
 
-pub struct StampIterator {
+pub struct StampIterator<'a> {
     current_index: i64,
+    db_conn: &'a sqlite::Connection,
 }
 
-impl StampIterator {
-    fn new(start_index: i64) -> Self {
+impl<'a> StampIterator<'a> {
+    fn new(conn: &'a sqlite::Connection, start_index: i64) -> Self {
         Self {
+            db_conn: conn,
             current_index: start_index,
         }
     }
 }
 
-impl Iterator for StampIterator {
+impl<'a> Iterator for StampIterator<'a> {
     type Item = Stamp;
 
     fn next(&mut self) -> Option<Stamp> {
-        if let Ok(s) = Stamp::get(self.current_index) {
+        if let Ok(s) = Stamp::get(self.db_conn, self.current_index) {
             self.current_index += 1;
             Some(s)
         } else {
