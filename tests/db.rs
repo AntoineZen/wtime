@@ -7,7 +7,7 @@ fn open_db(file_name: &str) -> sqlite::Connection {
 }
 
 #[test]
-fn test_create() {
+fn create() {
     let c = open_db("test_database.sqlite");
     Stamp::create(&c).unwrap();
 
@@ -15,7 +15,7 @@ fn test_create() {
 }
 
 #[test]
-fn test_insert() {
+fn insert() {
     let c = open_db("test_database.sqlite");
     Stamp::create(&c).unwrap();
 
@@ -36,49 +36,44 @@ fn test_insert() {
 }
 
 #[test]
-fn test_get() {
+fn get() {
     let c = open_db("test_database.sqlite");
     Stamp::create(&c).unwrap();
 
     // Get a non-existent stamp
-    let res = Stamp::get(&c, 1);
-    assert!(matches!(res, Err(DbError::NoSuchEntry)));
+    assert!(matches!(Stamp::get(&c, 1), Err(DbError::NoSuchEntry)));
 
     // Create a stamp
     Stamp::check_in().insert(&c).unwrap();
 
     // Check we can get it now
-    let s = Stamp::get(&c, 1).unwrap();
-    assert!(s.id == 1);
+    assert!(matches!(Stamp::get(&c, 1), Ok(x) if x.id == 1));
 
     Stamp::drop(&c).unwrap();
 }
 
 #[test]
-fn test_first() {
+fn first_getter() {
     let c = open_db("test_database.sqlite");
     Stamp::create(&c).unwrap();
 
     // Get a non-existent stamp
-    let res = Stamp::first(&c);
-    assert!(matches!(res, None));
+    assert!(matches!(Stamp::first(&c), None));
 
     // Create a stamp
     let mut first = Stamp::check_in();
     first.insert(&c).unwrap();
 
-    // Create a sectond stamp
-    let mut second = Stamp::check_in();
-    second.insert(&c).unwrap();
+    // Create a second stamp
+    Stamp::check_in().insert(&c).unwrap();
 
-    let res = Stamp::first(&c);
-    assert!(matches!(&res, Some(ref x) if x.id == first.id));
+    assert!(matches!(Stamp::first(&c), Some( x) if x.id == first.id));
 
     Stamp::drop(&c).unwrap();
 }
 
 #[test]
-fn test_iter() {
+fn iterator() {
     let c = open_db("test_database.sqlite");
     Stamp::create(&c).unwrap();
 
@@ -90,7 +85,6 @@ fn test_iter() {
         s.insert(&c).unwrap();
         last_inserted = Some(s);
     }
-    let last_inserted = last_inserted.unwrap();
 
     let first_stamp = Stamp::first(&c).unwrap();
 
@@ -99,17 +93,17 @@ fn test_iter() {
         last_iterated = Some(s);
     }
 
-    let last_iterated = last_iterated.unwrap();
-    assert!(last_iterated.id == last_inserted.id);
+    assert!(last_iterated.unwrap().id == last_inserted.unwrap().id);
 
     Stamp::drop(&c).unwrap();
 }
 
 #[test]
-fn test_last() {
+fn last_getter() {
     let c = open_db("test_database.sqlite");
     Stamp::create(&c).unwrap();
 
+    // Check that last() return None on an empty DB
     let res = Stamp::last(&c);
     assert!(matches!(res, None));
 
@@ -122,8 +116,7 @@ fn test_last() {
         last_inserted = Some(s);
     }
 
-    let last_direct = Stamp::last(&c);
-    assert!(matches!(&last_direct, Some(x) if x.id == last_inserted.unwrap().id));
+    assert!(matches!( Stamp::last(&c), Some(x) if x.id == last_inserted.unwrap().id));
 
     Stamp::drop(&c).unwrap();
 }
