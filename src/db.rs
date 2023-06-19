@@ -61,16 +61,14 @@ pub enum DbError {
 
 type StampResult<'a> = std::result::Result<&'a Stamp, DbError>;
 
-
-
-fn do_simple_query(conn: & sqlite::Connection, query: String) -> Result<(), DbError> {
+fn do_simple_query(conn: &sqlite::Connection, query: String) -> Result<(), DbError> {
     conn.execute(query)?;
     Ok(())
 }
 
 impl Stamp {
     pub fn new(id: i64, date: DateTime<Utc>, in_out: InOut) -> Self {
-        Self { id, date, in_out}
+        Self { id, date, in_out }
     }
 
     pub fn check_in() -> Self {
@@ -96,19 +94,18 @@ impl Stamp {
             self.in_out
         );
 
-            conn.execute(insert_query)?;
+        conn.execute(insert_query)?;
 
-            let mut statement = conn.prepare("SELECT last_insert_rowid()")?;
+        let mut statement = conn.prepare("SELECT last_insert_rowid()")?;
 
-            match statement.next()? {
-                sqlite::State::Row => {
-                    self.id = statement.read::<i64, _>(0)?;
-                }
-                sqlite::State::Done => {
-                    unreachable!("SELECT last_insert_rowid() should not fail");
-                }
+        match statement.next()? {
+            sqlite::State::Row => {
+                self.id = statement.read::<i64, _>(0)?;
             }
-
+            sqlite::State::Done => {
+                unreachable!("SELECT last_insert_rowid() should not fail");
+            }
+        }
 
         Ok(self)
     }
@@ -141,40 +138,40 @@ impl Stamp {
     }
 
     pub fn last(conn: &sqlite::Connection) -> Option<Stamp> {
-            // Find the last id from the table
-            let mut statement = conn.prepare("SELECT max(id) FROM Stamp;").ok()?;
-            match statement.next().ok()? {
-                sqlite::State::Row => {
-                    // Once we have it, get the Stamp entry
-                    let last_id = statement.read::<i64, _>(0).ok()?;
+        // Find the last id from the table
+        let mut statement = conn.prepare("SELECT max(id) FROM Stamp;").ok()?;
+        match statement.next().ok()? {
+            sqlite::State::Row => {
+                // Once we have it, get the Stamp entry
+                let last_id = statement.read::<i64, _>(0).ok()?;
 
-                    // TODO: this get cause a dead-lock! by calling
-                    // twice CONN.lock()
-                    if let Ok(s) = Self::get(conn, last_id) {
-                        Some(s)
-                    } else {
-                        None
-                    }
+                // TODO: this get cause a dead-lock! by calling
+                // twice CONN.lock()
+                if let Ok(s) = Self::get(conn, last_id) {
+                    Some(s)
+                } else {
+                    None
                 }
-                sqlite::State::Done => None,
             }
+            sqlite::State::Done => None,
+        }
     }
 
     pub fn get(conn: &sqlite::Connection, id: i64) -> Result<Stamp, DbError> {
-            let mut statement = conn.prepare(format!(
-                "SELECT datetime, in_out FROM Stamp WHERE id = {};",
-                id
-            ))?;
+        let mut statement = conn.prepare(format!(
+            "SELECT datetime, in_out FROM Stamp WHERE id = {};",
+            id
+        ))?;
 
-            match statement.next()? {
-                sqlite::State::Row => Ok(Self {
-                    id: id,
-                    date: DateTime::parse_from_rfc3339(&statement.read::<String, _>("datetime")?)?
-                        .into(),
-                    in_out: InOut::from_str(&statement.read::<String, _>("in_out")?).unwrap(),
-                }),
-                sqlite::State::Done => Err(DbError::NoSuchEntry),
-            }
+        match statement.next()? {
+            sqlite::State::Row => Ok(Self {
+                id: id,
+                date: DateTime::parse_from_rfc3339(&statement.read::<String, _>("datetime")?)?
+                    .into(),
+                in_out: InOut::from_str(&statement.read::<String, _>("in_out")?).unwrap(),
+            }),
+            sqlite::State::Done => Err(DbError::NoSuchEntry),
+        }
     }
 
     pub fn delete(self: &Stamp, conn: &sqlite::Connection) -> Result<(), DbError> {

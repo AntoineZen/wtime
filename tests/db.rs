@@ -1,8 +1,8 @@
+use sqlite;
 use std::path::Path;
 use wtime::db::{DbError, InOut, Stamp};
-use sqlite;
 
-fn open_db(file_name: &str) -> sqlite::Connection{
+fn open_db(file_name: &str) -> sqlite::Connection {
     sqlite::open(Path::new(file_name)).unwrap()
 }
 
@@ -127,4 +127,3 @@ fn test_last() {
 
     Stamp::drop(&c).unwrap();
 }
-
