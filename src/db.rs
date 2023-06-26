@@ -1,5 +1,6 @@
-use chrono::prelude::*;
+use chrono::{prelude::*, Duration};
 use sqlite::{self};
+use std::ops::Sub;
 use std::{fmt::Formatter, str::FromStr};
 use thiserror::Error;
 
@@ -197,6 +198,14 @@ impl Stamp {
 
         do_simple_query(conn, query.into())
     }
+
+    pub fn delta(self: &Stamp, other: &Stamp) -> Duration {
+        if other.date > self.date {
+            other.date - self.date
+        } else {
+            self.date - other.date
+        }
+    }
 }
 
 pub struct StampIterator<'a> {
@@ -226,10 +235,12 @@ impl<'a> Iterator for StampIterator<'a> {
     }
 }
 
+#[cfg(test)]
 mod test {
     use super::{DbError, InOut, Stamp};
+    use chrono::{DateTime, Duration, Utc};
     use sqlite;
-    use std::path::Path;
+    use std::{path::Path, str::FromStr};
 
     fn open_db(file_name: &str) -> sqlite::Connection {
         sqlite::open(Path::new(file_name)).unwrap()
@@ -348,5 +359,23 @@ mod test {
         assert!(matches!( Stamp::last(&c), Some(x) if x.id == last_inserted.unwrap().id));
 
         Stamp::drop(&c).unwrap();
+    }
+
+    #[test]
+    fn delta() {
+        let t1 = Stamp::new(
+            0,
+            DateTime::<Utc>::from_str("2020-01-01T08:00:00Z").unwrap(),
+            InOut::In,
+        );
+        let t2 = Stamp::new(
+            0,
+            DateTime::<Utc>::from_str("2020-01-01T10:15:20Z").unwrap(),
+            InOut::In,
+        );
+
+        let exp_delta = Duration::hours(2) + Duration::minutes(15) + Duration::seconds(20);
+        assert!(t2.delta(&t1) == exp_delta);
+        assert!(t1.delta(&t2) == exp_delta);
     }
 }
