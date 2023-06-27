@@ -1,6 +1,5 @@
 use chrono::{prelude::*, Duration};
 use sqlite::{self};
-use std::ops::Sub;
 use std::{fmt::Formatter, str::FromStr};
 use thiserror::Error;
 
@@ -34,6 +33,7 @@ impl std::str::FromStr for InOut {
     }
 }
 
+#[derive(Debug)]
 pub struct Stamp {
     pub id: i64,
     pub date: DateTime<Utc>,
@@ -166,7 +166,27 @@ impl Stamp {
 
         match statement.next()? {
             sqlite::State::Row => Ok(Self {
-                id: id,
+                id,
+                date: DateTime::parse_from_rfc3339(&statement.read::<String, _>("datetime")?)?
+                    .into(),
+                in_out: InOut::from_str(&statement.read::<String, _>("in_out")?).unwrap(),
+            }),
+            sqlite::State::Done => Err(DbError::NoSuchEntry),
+        }
+    }
+
+    pub fn get_after(
+        conn: &sqlite::Connection,
+        initial_date: &DateTime<Utc>,
+    ) -> Result<Self, DbError> {
+        let mut statement = conn.prepare(format!(
+            "SELECT id, datetime, in_out FROM Stamp WHERE datetime >= '{}';",
+            initial_date.to_rfc3339()
+        ))?;
+
+        match statement.next()? {
+            sqlite::State::Row => Ok(Self {
+                id: statement.read::<i64, _>("id")?,
                 date: DateTime::parse_from_rfc3339(&statement.read::<String, _>("datetime")?)?
                     .into(),
                 in_out: InOut::from_str(&statement.read::<String, _>("in_out")?).unwrap(),
@@ -377,5 +397,32 @@ mod test {
         let exp_delta = Duration::hours(2) + Duration::minutes(15) + Duration::seconds(20);
         assert!(t2.delta(&t1) == exp_delta);
         assert!(t1.delta(&t2) == exp_delta);
+    }
+
+    #[test]
+    fn get_after() {
+        let c = open_db("test_database.sqlite");
+        Stamp::create(&c).unwrap();
+
+        let mut t1 = Stamp::new(
+            0,
+            DateTime::<Utc>::from_str("2020-01-01T08:00:00Z").unwrap(),
+            InOut::In,
+        );
+
+        t1.insert(&c).unwrap();
+
+        let start_date = DateTime::<Utc>::from_str("2020-01-01T00:00:00Z").unwrap();
+        let t1_retrived = Stamp::get_after(&c, &start_date).unwrap();
+
+        assert!(t1.id == t1_retrived.id);
+
+        let does_not_exists = Stamp::get_after(
+            &c,
+            &DateTime::<Utc>::from_str("2020-01-01T10:00:00Z").unwrap(),
+        );
+        assert!(matches!(does_not_exists, Err(DbError::NoSuchEntry)));
+
+        Stamp::drop(&c).unwrap();
     }
 }
