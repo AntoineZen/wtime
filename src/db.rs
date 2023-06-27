@@ -266,119 +266,118 @@ mod test {
         sqlite::open(Path::new(file_name)).unwrap()
     }
 
-    #[test]
-    fn create() {
-        let c = open_db("test_database.sqlite");
-        Stamp::create(&c).unwrap();
+    struct TestFixture {
+        c: sqlite::Connection,
+    }
 
-        Stamp::drop(&c).unwrap();
+    impl TestFixture {
+        fn init() ->Self {
+            let conn = open_db("test_database.sqlite");
+            Stamp::create(&conn).unwrap();
+            TestFixture { c:conn }
+        }
+    }
+
+    impl Drop for TestFixture {
+
+        fn drop(&mut self) {
+            Stamp::drop(&self.c).unwrap();
+        }
     }
 
     #[test]
     fn insert() {
-        let c = open_db("test_database.sqlite");
-        Stamp::create(&c).unwrap();
+        let f = TestFixture::init();
+
+        Stamp::create(&f.c).unwrap();
 
         let mut s_in = Stamp::check_in();
 
-        s_in.insert(&c).unwrap();
+        s_in.insert(&f.c).unwrap();
 
         assert!(s_in.id != 0);
         assert!(matches!(s_in.in_out, InOut::In));
 
         let mut s_out = Stamp::check_out();
-        s_out.insert(&c).unwrap();
+        s_out.insert(&f.c).unwrap();
 
         assert!(s_out.id == s_in.id + 1);
         assert!(matches!(s_out.in_out, InOut::Out));
-
-        Stamp::drop(&c).unwrap();
     }
 
     #[test]
     fn get() {
-        let c = open_db("test_database.sqlite");
-        Stamp::create(&c).unwrap();
+        let f = TestFixture::init();
 
         // Get a non-existent stamp
-        assert!(matches!(Stamp::get(&c, 1), Err(DbError::NoSuchEntry)));
+        assert!(matches!(Stamp::get(&f.c, 1), Err(DbError::NoSuchEntry)));
 
         // Create a stamp
-        Stamp::check_in().insert(&c).unwrap();
+        Stamp::check_in().insert(&f.c).unwrap();
 
         // Check we can get it now
-        assert!(matches!(Stamp::get(&c, 1), Ok(x) if x.id == 1));
-
-        Stamp::drop(&c).unwrap();
+        assert!(matches!(Stamp::get(&f.c, 1), Ok(x) if x.id == 1));
     }
 
     #[test]
     fn first_getter() {
-        let c = open_db("test_database.sqlite");
-        Stamp::create(&c).unwrap();
+        let f = TestFixture::init();
 
         // Get a non-existent stamp
-        assert!(matches!(Stamp::first(&c), None));
+        assert!(matches!(Stamp::first(&f.c), None));
 
         // Create a stamp
         let mut first = Stamp::check_in();
-        first.insert(&c).unwrap();
+        first.insert(&f.c).unwrap();
 
         // Create a second stamp
-        Stamp::check_in().insert(&c).unwrap();
+        Stamp::check_in().insert(&f.c).unwrap();
 
-        assert!(matches!(Stamp::first(&c), Some( x) if x.id == first.id));
-
-        Stamp::drop(&c).unwrap();
+        assert!(matches!(Stamp::first(&f.c), Some( x) if x.id == first.id));
+;
     }
 
     #[test]
     fn iterator() {
-        let c = open_db("test_database.sqlite");
-        Stamp::create(&c).unwrap();
+        let f = TestFixture::init();
 
         // Create a stamp
         let mut last_inserted = None;
         for _ in 0..10 {
-            Stamp::check_in().insert(&c).unwrap();
+            Stamp::check_in().insert(&f.c).unwrap();
             let mut s = Stamp::check_out();
-            s.insert(&c).unwrap();
+            s.insert(&f.c).unwrap();
             last_inserted = Some(s);
         }
 
-        let first_stamp = Stamp::first(&c).unwrap();
+        let first_stamp = Stamp::first(&f.c).unwrap();
 
         let mut last_iterated: Option<Stamp> = None;
-        for s in first_stamp.iter(&c) {
+        for s in first_stamp.iter(&f.c) {
             last_iterated = Some(s);
         }
 
         assert!(last_iterated.unwrap().id == last_inserted.unwrap().id);
-
-        Stamp::drop(&c).unwrap();
     }
 
     #[test]
     fn last_getter() {
-        let c = open_db("test_database.sqlite");
-        Stamp::create(&c).unwrap();
+        let f = TestFixture::init();
 
         // Check that last() return None on an empty DB
-        let res = Stamp::last(&c);
+        let res = Stamp::last(&f.c);
         assert!(matches!(res, None));
 
         // Create some stamp
         let mut last_inserted = None;
         for _ in 0..10 {
-            Stamp::check_in().insert(&c).unwrap();
+            Stamp::check_in().insert(&f.c).unwrap();
             let mut s = Stamp::check_out();
-            s.insert(&c).unwrap();
+            s.insert(&f.c).unwrap();
             last_inserted = Some(s);
         }
 
-        assert!(matches!( Stamp::last(&c), Some(x) if x.id == last_inserted.unwrap().id));
-
-        Stamp::drop(&c).unwrap();
+        assert!(matches!( Stamp::last(&f.c), Some(x) if x.id == last_inserted.unwrap().id));
     }
 
     #[test]
@@ -401,8 +400,7 @@ mod test {
 
     #[test]
     fn get_after() {
-        let c = open_db("test_database.sqlite");
-        Stamp::create(&c).unwrap();
+        let f = TestFixture::init();
 
         let mut t1 = Stamp::new(
             0,
@@ -410,19 +408,17 @@ mod test {
             InOut::In,
         );
 
-        t1.insert(&c).unwrap();
+        t1.insert(&f.c).unwrap();
 
         let start_date = DateTime::<Utc>::from_str("2020-01-01T00:00:00Z").unwrap();
-        let t1_retrived = Stamp::get_after(&c, &start_date).unwrap();
+        let t1_retrived = Stamp::get_after(&f.c, &start_date).unwrap();
 
         assert!(t1.id == t1_retrived.id);
 
         let does_not_exists = Stamp::get_after(
-            &c,
+            &f.c,
             &DateTime::<Utc>::from_str("2020-01-01T10:00:00Z").unwrap(),
         );
         assert!(matches!(does_not_exists, Err(DbError::NoSuchEntry)));
-
-        Stamp::drop(&c).unwrap();
     }
 }
