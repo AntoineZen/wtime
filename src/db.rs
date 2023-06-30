@@ -3,7 +3,7 @@ use sqlite::{self};
 use std::{fmt::Formatter, str::FromStr};
 use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum InOut {
     In,
     Out,
