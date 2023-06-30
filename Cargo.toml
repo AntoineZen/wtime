@@ -7,5 +7,6 @@ edition = "2021"
 
 [dependencies]
 chrono = "0.4.24"
+clap = { version = "4.3.8", features = ["cargo"] }
 sqlite = "0.30.4"
 thiserror = "1.0.40"

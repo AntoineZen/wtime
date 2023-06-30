@@ -271,15 +271,14 @@ mod test {
     }
 
     impl TestFixture {
-        fn init() ->Self {
+        fn init() -> Self {
             let conn = open_db("test_database.sqlite");
             Stamp::create(&conn).unwrap();
-            TestFixture { c:conn }
+            TestFixture { c: conn }
         }
     }
 
     impl Drop for TestFixture {
-
         fn drop(&mut self) {
             Stamp::drop(&self.c).unwrap();
         }
@@ -334,7 +333,6 @@ mod test {
         Stamp::check_in().insert(&f.c).unwrap();
 
         assert!(matches!(Stamp::first(&f.c), Some( x) if x.id == first.id));
-;
     }
 
     #[test]
