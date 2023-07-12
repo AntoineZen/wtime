@@ -146,8 +146,6 @@ impl Stamp {
                 // Once we have it, get the Stamp entry
                 let last_id = statement.read::<i64, _>(0).ok()?;
 
-                // TODO: this get cause a dead-lock! by calling
-                // twice CONN.lock()
                 if let Ok(s) = Self::get(conn, last_id) {
                     Some(s)
                 } else {
@@ -257,7 +255,7 @@ impl<'a> Iterator for StampIterator<'a> {
 
 #[cfg(test)]
 mod test {
-    use super::{DbError, InOut, Stamp};
+    use super::{DbError, InOut, ParseInOutError, Stamp};
     use chrono::{DateTime, Duration, Utc};
     use sqlite;
     use std::{path::Path, str::FromStr};
@@ -282,6 +280,25 @@ mod test {
         fn drop(&mut self) {
             Stamp::drop(&self.c).unwrap();
         }
+    }
+
+    #[test]
+    fn inout() {
+        assert_eq!(InOut::from_str("In"), Ok(InOut::In));
+        assert_eq!(InOut::from_str("in"), Ok(InOut::In));
+
+        assert_eq!(InOut::from_str("   In "), Ok(InOut::In));
+        assert_eq!(InOut::from_str(" in   "), Ok(InOut::In));
+
+        assert_eq!(InOut::from_str("OUT"), Ok(InOut::Out));
+        assert_eq!(InOut::from_str("out"), Ok(InOut::Out));
+
+        assert_eq!(InOut::from_str(" oUt "), Ok(InOut::Out));
+        assert_eq!(InOut::from_str(" out  "), Ok(InOut::Out));
+
+        assert_eq!(InOut::from_str(" ou  "), Err(ParseInOutError));
+        assert_eq!(InOut::from_str(""), Err(ParseInOutError));
+        assert_eq!(InOut::from_str("i"), Err(ParseInOutError));
     }
 
     #[test]
@@ -316,6 +333,23 @@ mod test {
 
         // Check we can get it now
         assert!(matches!(Stamp::get(&f.c, 1), Ok(x) if x.id == 1));
+    }
+
+    #[test]
+    fn update() {
+        let f = TestFixture::init();
+
+        // Create a stamp
+        let mut s = Stamp::check_in();
+        s.insert(&f.c).unwrap();
+
+        s.in_out = InOut::Out;
+
+        let result = s.update(&f.c);
+
+        println!("{:?}", &result);
+
+        assert!(result.is_ok());
     }
 
     #[test]
