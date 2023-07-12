@@ -113,7 +113,7 @@ impl Stamp {
 
     pub fn update(self: &Stamp, conn: &sqlite::Connection) -> StampResult {
         let query = format!(
-            "UPDATE Stamp SET datetime, in_out VALUES ( \"{}\", \"{}\") WHERE id = {}",
+            "UPDATE Stamp SET datetime = \"{}\", in_out = \"{}\" WHERE id = {};",
             self.date.to_rfc3339(),
             self.in_out,
             self.id
