@@ -123,19 +123,11 @@ impl Stamp {
     }
 
     pub fn previous(self: &Stamp, conn: &sqlite::Connection) -> Option<Stamp> {
-        if let Ok(s) = Stamp::get(conn, self.id - 1) {
-            Some(s)
-        } else {
-            None
-        }
+        Self::get(conn, self.id - 1).ok()
     }
 
     pub fn first(conn: &sqlite::Connection) -> Option<Stamp> {
-        if let Ok(s) = Stamp::get(conn, 1) {
-            Some(s)
-        } else {
-            None
-        }
+        Self::get(conn, 1).ok()
     }
 
     pub fn last(conn: &sqlite::Connection) -> Option<Stamp> {
@@ -146,11 +138,7 @@ impl Stamp {
                 // Once we have it, get the Stamp entry
                 let last_id = statement.read::<i64, _>(0).ok()?;
 
-                if let Ok(s) = Self::get(conn, last_id) {
-                    Some(s)
-                } else {
-                    None
-                }
+                Self::get(conn, last_id).ok()
             }
             sqlite::State::Done => None,
         }
