@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
+use anyhow::{Context, Result, anyhow};
 use clap::{command, Command};
 use now::DateTimeNow;
 use wtime::db::{InOut, Stamp};
@@ -35,8 +36,7 @@ fn do_checkin() -> Result<()> {
     // check that we are actually out
     if let Some(last_stamp) = Stamp::last(&c) {
         if last_stamp.in_out == InOut::In {
-            println!("Already checked in ! (Do you meant to check-out ?)");
-            return Ok(());
+            return Err(anyhow!("Already checked in ! (Do you meant to check-out ?)"));
         }
     }
 
@@ -54,8 +54,7 @@ fn do_checkout() -> Result<()> {
     // Check that last stamp is check-in
     if let Some(last_stamp) = Stamp::last(&c) {
         if last_stamp.in_out == InOut::Out {
-            println!("Already checked out ! (Do you meant to check-in ?)");
-            return Ok(());
+            return Err(anyhow!("Already checked out ! (Do you meant to check-in ?)"));
         }
     }
 
