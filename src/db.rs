@@ -299,13 +299,13 @@ mod test {
 
         s_in.insert(&f.c).unwrap();
 
-        assert!(s_in.id != 0);
+        assert_ne!(s_in.id, 0);
         assert!(matches!(s_in.in_out, InOut::In));
 
         let mut s_out = Stamp::check_out();
         s_out.insert(&f.c).unwrap();
 
-        assert!(s_out.id == s_in.id + 1);
+        assert_eq!(s_out.id, s_in.id + 1);
         assert!(matches!(s_out.in_out, InOut::Out));
     }
 
@@ -373,11 +373,14 @@ mod test {
         let first_stamp = Stamp::first(&f.c).unwrap();
 
         let mut last_iterated: Option<Stamp> = None;
+        let mut count = 0;
         for s in first_stamp.iter(&f.c) {
             last_iterated = Some(s);
+            count += 1;
         }
 
-        assert!(last_iterated.unwrap().id == last_inserted.unwrap().id);
+        assert_eq!(last_iterated.unwrap().id, last_inserted.unwrap().id);
+        assert_eq!(20, count);
     }
 
     #[test]
@@ -414,8 +417,8 @@ mod test {
         );
 
         let exp_delta = Duration::hours(2) + Duration::minutes(15) + Duration::seconds(20);
-        assert!(t2.delta(&t1) == exp_delta);
-        assert!(t1.delta(&t2) == exp_delta);
+        assert_eq!(t2.delta(&t1), exp_delta);
+        assert_eq!(t1.delta(&t2), exp_delta);
     }
 
     #[test]
@@ -433,7 +436,7 @@ mod test {
         let start_date = DateTime::<Utc>::from_str("2020-01-01T00:00:00Z").unwrap();
         let t1_retrived = Stamp::get_after(&f.c, &start_date).unwrap();
 
-        assert!(t1.id == t1_retrived.id);
+        assert_eq!(t1.id, t1_retrived.id);
 
         let does_not_exists = Stamp::get_after(
             &f.c,
