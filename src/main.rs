@@ -1,9 +1,59 @@
-use anyhow::{Context, Result};
-use chrono::{DateTime, Utc};
-use anyhow::{Context, Result, anyhow};
+use anyhow::{anyhow, Context, Result};
+use chrono::{DateTime, Duration, Utc};
 use clap::{command, Command};
 use now::DateTimeNow;
+use sqlite::Connection;
+use wtime::db::InOut::{In, Out};
 use wtime::db::{InOut, Stamp};
+
+fn get_total_from(c: &Connection, from: &DateTime<Utc>) -> Duration {
+    let mut total = Duration::zero();
+    let mut possible_last: Option<Stamp> = None;
+    let first = if let Ok(s) = Stamp::get_after(c, from) {
+        s
+    } else {
+        return total;
+    };
+
+    for stamp in first.iter(&c) {
+        if let Some(l) = possible_last {
+            if l.in_out == In && stamp.in_out == Out {
+                total = total + (stamp.date - l.date);
+            }
+        }
+        possible_last = Some(stamp);
+    }
+    total
+}
+
+fn print_resume(c: &Connection) {
+    // Print worked time
+    let now = Utc::now();
+
+    let begin_of_day = now.beginning_of_day();
+
+    let day_total = get_total_from(&c, &begin_of_day);
+    println!(
+        "You worked {} hours, {} minutes and {} seconds today (since {})",
+        day_total.num_hours(),
+        day_total.num_minutes(),
+        day_total.num_seconds(),
+        begin_of_day
+    );
+
+    // Don't show week total on mondays
+    let begin_of_week = now.beginning_of_week();
+    if begin_of_day != begin_of_week {
+        let week_total = get_total_from(&c, &begin_of_week);
+        println!(
+            "You worked {} hours, {} minutes and {} seconds this week (since {})",
+            week_total.num_hours(),
+            week_total.num_minutes(),
+            week_total.num_seconds(),
+            begin_of_week
+        );
+    }
+}
 
 fn main() -> Result<()> {
     let matches = command!()
@@ -36,7 +86,9 @@ fn do_checkin() -> Result<()> {
     // check that we are actually out
     if let Some(last_stamp) = Stamp::last(&c) {
         if last_stamp.in_out == InOut::In {
-            return Err(anyhow!("Already checked in ! (Do you meant to check-out ?)"));
+            return Err(anyhow!(
+                "Already checked in ! (Do you meant to check-out ?)"
+            ));
         }
     }
 
@@ -54,7 +106,9 @@ fn do_checkout() -> Result<()> {
     // Check that last stamp is check-in
     if let Some(last_stamp) = Stamp::last(&c) {
         if last_stamp.in_out == InOut::Out {
-            return Err(anyhow!("Already checked out ! (Do you meant to check-in ?)"));
+            return Err(anyhow!(
+                "Already checked out ! (Do you meant to check-in ?)"
+            ));
         }
     }
 
@@ -64,15 +118,10 @@ fn do_checkout() -> Result<()> {
 
     println!("Checked out at {}", stamp.date.format("%H:%M"));
 
-    // Print worked time
-    let now = Utc::now();
-    let begin_of_week = now.beginning_of_week();
-    let begin_of_day = now.beginning_of_day();
-
     if let Some(checkin) = stamp.previous(&c) {
         let work_time = checkin.delta(&stamp);
         println!(
-            "You worked {} hours, {} minutes and {} seconds.",
+            "You worked {} hours, {} minutes and {} seconds",
             work_time.num_hours(),
             work_time.num_minutes(),
             work_time.num_seconds()
@@ -83,5 +132,7 @@ fn do_checkout() -> Result<()> {
 }
 
 fn do_list() -> Result<()> {
+    let c = open_db().context("Opening database")?;
+    print_resume(&c);
     Ok(())
 }
