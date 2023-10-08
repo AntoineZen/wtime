@@ -1,11 +1,21 @@
+//! Database abstraction layer
+//!
+//! This module contains object that enable easier manipulation of the
+//! objects stored in database.
+
+
 use chrono::{prelude::*, Duration};
 use sqlite::{self};
 use std::{fmt::Formatter, str::FromStr};
 use thiserror::Error;
 
+
+/// Stamping direction (checked -in or -out) used for Stamp data structure.
 #[derive(Debug, Eq, PartialEq)]
 pub enum InOut {
+    /// Stamp is a Check-in
     In,
+    /// Stamp is a Check-out
     Out,
 }
 
@@ -18,6 +28,8 @@ impl std::fmt::Display for InOut {
     }
 }
 
+
+/// Unit-struct for parsing error on InOut enum
 #[derive(Debug, PartialEq, Eq)]
 pub struct ParseInOutError;
 
@@ -33,26 +45,40 @@ impl std::str::FromStr for InOut {
     }
 }
 
+/// Represent an "stamp", i.e. a check-out or a check-in time
 #[derive(Debug)]
 pub struct Stamp {
+    /// Stamp unique ID (primary-key in database)
     pub id: i64,
+    /// Stamp timestamp, Utc
     pub date: DateTime<Utc>,
+    /// Marker if Stamp was check-in or check-out
+    ///
+    /// See [InOut] enum.
     pub in_out: InOut,
 }
 
+
+/// Type for database related error
 #[derive(Error, Debug)]
 pub enum DbError {
+
+    /// Error Popageated from sqlite libary
     #[error(transparent)]
     SqLiteError {
         #[from]
         source: sqlite::Error,
     },
 
+    /// Database was not open prior to operation returning this error
     #[error("Database not opened!")]
     DbNotOpenError,
+
+    /// Requested entry does not exist in the database
     #[error("No such entry")]
     NoSuchEntry,
 
+    /// ISO8601 string in database was not parsed correctly.
     #[error(transparent)]
     PraseError {
         #[from]
@@ -68,10 +94,13 @@ fn do_simple_query(conn: &sqlite::Connection, query: String) -> Result<(), DbErr
 }
 
 impl Stamp {
+
+    /// Construct a new struct with exact value
     pub fn new(id: i64, date: DateTime<Utc>, in_out: InOut) -> Self {
         Self { id, date, in_out }
     }
 
+    /// Create a new stamp item, bearing current timestamp and check-IN direction
     pub fn check_in() -> Self {
         Self {
             id: 0,
@@ -80,6 +109,7 @@ impl Stamp {
         }
     }
 
+    /// Create a new stamp item, bearing current timestamp and check-OUT direction
     pub fn check_out() -> Self {
         Self {
             id: 0,
@@ -88,7 +118,14 @@ impl Stamp {
         }
     }
 
-    pub fn insert(self: &mut Stamp, conn: &sqlite::Connection) -> StampResult {
+    /// Insert (create) stamp into given database
+    ///
+    /// # Arguments
+    /// * `conn` - reference to a open SQLITE database connection
+    ///
+    /// # Return
+    /// Return self if no error.
+    pub fn insert(self: &mut Self, conn: &sqlite::Connection) -> StampResult {
         let insert_query = format!(
             "INSERT INTO Stamp ( datetime, in_out) VALUES( \"{}\", \"{}\") ",
             self.date.to_rfc3339(),
@@ -111,6 +148,13 @@ impl Stamp {
         Ok(self)
     }
 
+    /// Update the database with in memory data for given Stamping.
+    ///
+    /// # Arguments
+    /// * `conn` - reference to a open SQLITE database connection
+    ///
+    /// # Return
+    /// Return self if no error.
     pub fn update(self: &Stamp, conn: &sqlite::Connection) -> StampResult {
         let query = format!(
             "UPDATE Stamp SET datetime = \"{}\", in_out = \"{}\" WHERE id = {};",
@@ -122,14 +166,41 @@ impl Stamp {
         Ok(self)
     }
 
+    /// Get the stamp previous to this one.
+    ///
+    /// # Arguments
+    ///
+    /// * `conn` - reference to a open SQLITE database connection
+    ///
+    /// # Return
+    ///
+    /// Return previous one into Some. Return None, if this the first stamp.
     pub fn previous(self: &Stamp, conn: &sqlite::Connection) -> Option<Stamp> {
         Self::get(conn, self.id - 1).ok()
     }
 
+    /// Get the very first stamp
+    ///
+    /// # Arguments
+    ///
+    /// * `conn` - reference to a open SQLITE database connection
+    ///
+    /// # Return
+    ///
+    /// Return the very fist stamp into Some. Return None, if this there is no stamp at all.
     pub fn first(conn: &sqlite::Connection) -> Option<Stamp> {
         Self::get(conn, 1).ok()
     }
 
+    /// Get the very last stamp
+    ///
+    /// # Arguments
+    ///
+    /// * `conn` - reference to a open SQLITE database connection
+    ///
+    /// # Return
+    ///
+    /// Return the very last stamp into Some. Return None, if this there is no stamp at all.
     pub fn last(conn: &sqlite::Connection) -> Option<Stamp> {
         // Find the last id from the table
         let mut statement = conn.prepare("SELECT max(id) FROM Stamp;").ok()?;
@@ -144,6 +215,16 @@ impl Stamp {
         }
     }
 
+    /// Get the stamp with given ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `conn` - reference to a open SQLITE database connection
+    /// * `id` - Stamp ID to get
+    ///
+    /// # Returns
+    ///
+    /// Stamp object with the given id, or [DbError::NoSuchEntry] error
     pub fn get(conn: &sqlite::Connection, id: i64) -> Result<Stamp, DbError> {
         let mut statement = conn.prepare(format!(
             "SELECT datetime, in_out FROM Stamp WHERE id = {};",
@@ -161,6 +242,16 @@ impl Stamp {
         }
     }
 
+    /// Get the stamp the very first Stamp after the given timestamp
+    ///
+    /// # Arguments
+    ///
+    /// * `conn` - reference to a open SQLITE database connection
+    /// * `initial_date` - Date/Time to look after
+    ///
+    /// # Returns
+    ///
+    /// First stamp after given date or [DbError::NoSuchEntry] error
     pub fn get_after(
         conn: &sqlite::Connection,
         initial_date: &DateTime<Utc>,
@@ -181,10 +272,20 @@ impl Stamp {
         }
     }
 
+    /// Delete current stamp from database
+    ///
+    /// # Arguments
+    ///
+    /// * `conn` - reference to a open SQLITE database connection
     pub fn delete(self: &Stamp, conn: &sqlite::Connection) -> Result<(), DbError> {
         do_simple_query(conn, format!("DELETE FROM Stamp WHERE ID = {};", self.id))
     }
 
+    /// Create database table (Static method)
+    ///
+    /// # Arguments
+    ///
+    /// * `conn` - reference to a open SQLITE database connection
     pub fn create(conn: &sqlite::Connection) -> Result<(), DbError> {
         let query = "CREATE TABLE IF NOT EXISTS Stamp (
                 id INTEGER NOT NULL PRIMARY KEY ASC,
@@ -195,16 +296,27 @@ impl Stamp {
         do_simple_query(conn, query.into())
     }
 
+    /// Get an iterator, staring from current stamp
+    ///
+    /// # Arguments
+    ///
+    /// * `conn` - reference to a open SQLITE database connection
     pub fn iter<'a>(self: &Stamp, conn: &'a sqlite::Connection) -> StampIterator<'a> {
         StampIterator::new(conn, self.id)
     }
 
+    /// Delete table as a whole
+    ///
+    /// This is mainly used for testing purpose
     pub fn drop(conn: &sqlite::Connection) -> Result<(), DbError> {
         let query = "DROP TABLE Stamp";
 
         do_simple_query(conn, query.into())
     }
 
+    /// Compute the time delta from this stamp to another.
+    ///
+    /// * `other` - Stamp to compute time delta from
     pub fn delta(self: &Stamp, other: &Stamp) -> Duration {
         if other.date > self.date {
             other.date - self.date
@@ -214,6 +326,7 @@ impl Stamp {
     }
 }
 
+/// Iterator over stamps objects
 pub struct StampIterator<'a> {
     current_index: i64,
     db_conn: &'a sqlite::Connection,
