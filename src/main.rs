@@ -6,16 +6,20 @@ use sqlite::Connection;
 use wtime::db::InOut::{In, Out};
 use wtime::db::{InOut, Stamp};
 
+/// Get total worked time since given date `from` using database connection `c`.
 fn get_total_from(c: &Connection, from: &DateTime<Utc>) -> Duration {
     let mut total = Duration::zero();
     let mut possible_last: Option<Stamp> = None;
+
+    // Get first stamp after given date, it there is none, return Zero duration
     let first = if let Ok(s) = Stamp::get_after(c, from) {
         s
     } else {
-        return total;
+        return Duration::zero();
     };
 
-    for stamp in first.iter(&c) {
+    // Iterate on all stamps from there and sum the total
+    for stamp in first.iter(c) {
         if let Some(l) = possible_last {
             if l.in_out == In && stamp.in_out == Out {
                 total = total + (stamp.date - l.date);
@@ -23,6 +27,8 @@ fn get_total_from(c: &Connection, from: &DateTime<Utc>) -> Duration {
         }
         possible_last = Some(stamp);
     }
+
+    // Return total duration
     total
 }
 
@@ -31,8 +37,7 @@ fn print_resume(c: &Connection) {
     let now = Utc::now();
 
     let begin_of_day = now.beginning_of_day();
-
-    let day_total = get_total_from(&c, &begin_of_day);
+    let day_total = get_total_from(c, &begin_of_day);
     println!(
         "You worked {} hours, {} minutes and {} seconds today (since {})",
         day_total.num_hours(),
@@ -44,7 +49,7 @@ fn print_resume(c: &Connection) {
     // Don't show week total on mondays
     let begin_of_week = now.beginning_of_week();
     if begin_of_day != begin_of_week {
-        let week_total = get_total_from(&c, &begin_of_week);
+        let week_total = get_total_from(c, &begin_of_week);
         println!(
             "You worked {} hours, {} minutes and {} seconds this week (since {})",
             week_total.num_hours(),
@@ -69,6 +74,7 @@ fn main() -> Result<()> {
     }
 }
 
+/// Open database connection, creating the table if the database does not previously exits.
 fn open_db() -> Result<sqlite::Connection> {
     let db_file = std::path::Path::new("prod.sqlite");
     let must_init = !db_file.exists();
