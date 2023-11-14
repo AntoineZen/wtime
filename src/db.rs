@@ -3,12 +3,10 @@
 //! This module contains object that enable easier manipulation of the
 //! objects stored in database.
 
-
 use chrono::{prelude::*, Duration};
 use sqlite::{self};
 use std::{fmt::Formatter, str::FromStr};
 use thiserror::Error;
-
 
 /// Stamping direction (checked -in or -out) used for Stamp data structure.
 #[derive(Debug, Eq, PartialEq)]
@@ -27,7 +25,6 @@ impl std::fmt::Display for InOut {
         }
     }
 }
-
 
 /// Unit-struct for parsing error on InOut enum
 #[derive(Debug, PartialEq, Eq)]
@@ -58,11 +55,9 @@ pub struct Stamp {
     pub in_out: InOut,
 }
 
-
 /// Type for database related error
 #[derive(Error, Debug)]
 pub enum DbError {
-
     /// Error Popageated from sqlite libary
     #[error(transparent)]
     SqLiteError {
@@ -94,7 +89,6 @@ fn do_simple_query(conn: &sqlite::Connection, query: String) -> Result<(), DbErr
 }
 
 impl Stamp {
-
     /// Construct a new struct with exact value
     pub fn new(id: i64, date: DateTime<Utc>, in_out: InOut) -> Self {
         Self { id, date, in_out }
