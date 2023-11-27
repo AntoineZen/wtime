@@ -3,6 +3,7 @@
 
 # Execution / test artefacts
 *.sqlite
+tarpaulin-report.html
 
 # Project files
 .vscode
