@@ -57,20 +57,20 @@ impl App {
         println!(
             "You worked {} hours, {} minutes and {} seconds today (since {})",
             day_total.num_hours(),
-            day_total.num_minutes(),
-            day_total.num_seconds(),
+            day_total.num_minutes() % 60,
+            day_total.num_seconds() % 60,
             begin_of_day
         );
 
         // Don't show week total on mondays
         let begin_of_week = now.beginning_of_week();
-        if begin_of_day != begin_of_week {
             let week_total = self.get_total_from(&begin_of_week);
+        if week_total != day_total {
             println!(
                 "You worked {} hours, {} minutes and {} seconds this week (since {})",
                 week_total.num_hours(),
-                week_total.num_minutes(),
-                week_total.num_seconds(),
+                week_total.num_minutes() % 60,
+                week_total.num_seconds() % 60,
                 begin_of_week
             );
         }
@@ -115,8 +115,8 @@ impl App {
             println!(
                 "You worked {} hours, {} minutes and {} seconds",
                 work_time.num_hours(),
-                work_time.num_minutes(),
-                work_time.num_seconds()
+                work_time.num_minutes() % 60,
+                work_time.num_seconds() & 60
             );
         }
 
