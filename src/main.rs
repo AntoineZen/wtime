@@ -24,7 +24,7 @@ impl App {
     }
 
     /// Get total worked time since given date `from`.
-    fn get_total_from(self: &Self, from: &DateTime<Utc>) -> Duration {
+    fn get_total_from(&self, from: &DateTime<Utc>) -> Duration {
         let mut total = Duration::zero();
         let mut possible_last: Option<Stamp> = None;
 
@@ -49,7 +49,7 @@ impl App {
         total
     }
 
-    fn print_resume(self: &Self) {
+    fn print_resume(&self) {
         // Print worked time
         let now = Utc::now();
 
@@ -77,7 +77,7 @@ impl App {
         }
     }
 
-    fn do_checkin(self: &Self) -> Result<()> {
+    fn do_checkin(&self) -> Result<()> {
         // check that we are actually out
         if let Some(last_stamp) = Stamp::last(&self.conn) {
             if last_stamp.in_out == InOut::In {
@@ -95,7 +95,7 @@ impl App {
         Ok(())
     }
 
-    fn do_checkout(self: &Self) -> Result<()> {
+    fn do_checkout(&self) -> Result<()> {
         // Check that last stamp is check-in
         if let Some(last_stamp) = Stamp::last(&self.conn) {
             if last_stamp.in_out == InOut::Out {
@@ -124,7 +124,7 @@ impl App {
         Ok(())
     }
 
-    fn do_list(self: &Self) -> Result<()> {
+    fn do_list(&self) -> Result<()> {
         self.print_resume();
         Ok(())
     }

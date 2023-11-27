@@ -30,7 +30,7 @@ impl std::fmt::Display for InOut {
 #[derive(Debug, PartialEq, Eq)]
 pub struct ParseInOutError;
 
-impl std::str::FromStr for InOut {
+impl FromStr for InOut {
     type Err = ParseInOutError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -75,7 +75,7 @@ pub enum DbError {
 
     /// ISO8601 string in database was not parsed correctly.
     #[error(transparent)]
-    PraseError {
+    ParseError {
         #[from]
         source: chrono::format::ParseError,
     },
@@ -119,7 +119,7 @@ impl Stamp {
     ///
     /// # Return
     /// Return self if no error.
-    pub fn insert(self: &mut Self, conn: &sqlite::Connection) -> StampResult {
+    pub fn insert(&mut self, conn: &sqlite::Connection) -> StampResult {
         let insert_query = format!(
             "INSERT INTO Stamp ( datetime, in_out) VALUES( \"{}\", \"{}\") ",
             self.date.to_rfc3339(),
@@ -295,7 +295,7 @@ impl Stamp {
     /// # Arguments
     ///
     /// * `conn` - reference to a open SQLITE database connection
-    pub fn iter<'a>(self: &Stamp, conn: &'a sqlite::Connection) -> StampIterator<'a> {
+    pub fn iter<'a>(&self, conn: &'a sqlite::Connection) -> StampIterator<'a> {
         StampIterator::new(conn, self.id)
     }
 
