@@ -353,7 +353,9 @@ mod test {
     use super::{DbError, InOut, ParseInOutError, Stamp};
     use chrono::{DateTime, Duration, Utc};
     use sqlite;
-    use std::{path::Path, str::FromStr};
+    use std::{fs, path::Path, str::FromStr};
+
+    const DB_FILE: &str = "unit-test.sqlite";
 
     fn open_db(file_name: &str) -> sqlite::Connection {
         sqlite::open(Path::new(file_name)).unwrap()
@@ -365,7 +367,7 @@ mod test {
 
     impl TestFixture {
         fn init() -> Self {
-            let conn = open_db("test_database.sqlite");
+            let conn = open_db(DB_FILE);
             Stamp::create(&conn).unwrap();
             TestFixture { c: conn }
         }
@@ -373,7 +375,7 @@ mod test {
 
     impl Drop for TestFixture {
         fn drop(&mut self) {
-            Stamp::drop(&self.c).unwrap();
+            fs::remove_file(DB_FILE).unwrap();
         }
     }
 

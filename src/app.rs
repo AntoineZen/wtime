@@ -3,6 +3,7 @@ use crate::db::{InOut, Stamp};
 use anyhow::{anyhow, Context, Result};
 use chrono::{DateTime, Duration, Utc};
 use now::DateTimeNow;
+use std::path::Path;
 
 /// Datacontainer for application live variables
 pub struct App {
@@ -11,8 +12,7 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(db_name: String) -> Result<Self> {
-        let db_file = std::path::Path::new(&db_name);
+    pub fn new(db_file: &Path) -> Result<Self> {
         let must_init = !db_file.exists();
         let conn = sqlite::open(db_file)?;
 
@@ -64,7 +64,7 @@ impl App {
 
         // Don't show week total on mondays
         let begin_of_week = now.beginning_of_week();
-            let week_total = self.get_total_from(&begin_of_week);
+        let week_total = self.get_total_from(&begin_of_week);
         if week_total != day_total {
             println!(
                 "You worked {} hours, {} minutes and {} seconds this week (since {})",

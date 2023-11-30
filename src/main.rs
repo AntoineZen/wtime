@@ -1,28 +1,42 @@
 use anyhow::{Context, Result};
-use clap::{command, Arg, Command};
+use clap::{command, Command};
+
+use std::path::PathBuf;
+
+#[cfg(not(debug_assertions))]
+use directories::ProjectDirs;
+#[cfg(not(debug_assertions))]
+use std::fs;
+
 use wtime::app::App;
+
+#[cfg(not(debug_assertions))]
+fn get_db_file() -> Result<PathBuf> {
+    let dirs =
+        ProjectDirs::from("", "", env!("CARGO_PKG_NAME")).context("Error getting data dir")?;
+    let mut data_dir_path = PathBuf::from(dirs.data_dir());
+
+    fs::create_dir_all(&data_dir_path).context("Error creating data dir")?;
+    data_dir_path.push("prod.sqlite");
+    Ok(data_dir_path)
+}
+
+#[cfg(debug_assertions)]
+fn get_db_file() -> Result<PathBuf> {
+    Ok(PathBuf::from("test.sqlite"))
+}
 
 fn main() -> Result<()> {
     // Build argument parser
     let matches = command!()
-        .arg(
-            Arg::new("database")
-                .long("db")
-                .default_value("prod.sqlite")
-                .help("Specify database to use"),
-        )
         .subcommand(Command::new("checkin").about("Start counting working time"))
         .subcommand(Command::new("checkout").about("Stop counting work time and display count"))
         .get_matches();
 
-    // Get database file from argument
-    let db_file_name: String = matches
-        .get_one::<String>("database")
-        .map(|s| s.to_string())
-        .context("Get DB file")?;
-
     // Create the app object
-    let app = App::new(db_file_name).context("Open DB file")?;
+    let db_file = get_db_file()?;
+    println!("Database file is {:?}", db_file);
+    let app = App::new(db_file.as_path()).context("Open DB file")?;
 
     // Reacts on command
     match matches.subcommand() {

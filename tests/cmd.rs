@@ -9,8 +9,6 @@ fn teardown() {
 fn test_default() {
     Command::cargo_bin(env!("CARGO_PKG_NAME"))
         .unwrap()
-        .arg("--db")
-        .arg(TEST_FILE)
         .assert()
         .success();
 
@@ -21,16 +19,12 @@ fn test_default() {
 fn test_checkin_checkout() {
     Command::cargo_bin(env!("CARGO_PKG_NAME"))
         .unwrap()
-        .arg("--db")
-        .arg(TEST_FILE)
         .arg("checkin")
         .assert()
         .success();
 
     Command::cargo_bin(env!("CARGO_PKG_NAME"))
         .unwrap()
-        .arg("--db")
-        .arg(TEST_FILE)
         .arg("checkout")
         .assert()
         .success();
@@ -42,16 +36,12 @@ fn test_checkin_checkout() {
 fn test_double_checkin() {
     Command::cargo_bin(env!("CARGO_PKG_NAME"))
         .unwrap()
-        .arg("--db")
-        .arg(TEST_FILE)
         .arg("checkin")
         .assert()
         .success();
 
     Command::cargo_bin(env!("CARGO_PKG_NAME"))
         .unwrap()
-        .arg("--db")
-        .arg(TEST_FILE)
         .arg("checkin")
         .assert()
         .failure();
@@ -63,8 +53,6 @@ fn test_double_checkin() {
 fn test_first_checkout() {
     Command::cargo_bin(env!("CARGO_PKG_NAME"))
         .unwrap()
-        .arg("--db")
-        .arg(TEST_FILE)
         .arg("checkout")
         .assert()
         .success();
@@ -76,24 +64,18 @@ fn test_first_checkout() {
 fn test_double_checkout() {
     Command::cargo_bin(env!("CARGO_PKG_NAME"))
         .unwrap()
-        .arg("--db")
-        .arg(TEST_FILE)
         .arg("checkin")
         .assert()
         .success();
 
     Command::cargo_bin(env!("CARGO_PKG_NAME"))
         .unwrap()
-        .arg("--db")
-        .arg(TEST_FILE)
         .arg("checkout")
         .assert()
         .success();
 
     Command::cargo_bin(env!("CARGO_PKG_NAME"))
         .unwrap()
-        .arg("--db")
-        .arg(TEST_FILE)
         .arg("checkout")
         .assert()
         .failure();
